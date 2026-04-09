@@ -1175,13 +1175,13 @@ function App() {
         <Stat label="Sessions" value={stats.sessions} />
       </div>
       <div className="action-row">
-        <button className="primary-button" onClick={() => setPage("log")}>
+        <button type="button" className="primary-button" onClick={() => setPage("log")}>
           Log Session
         </button>
-        <button className="secondary-button" onClick={() => setPage("details")}>
+        <button type="button" className="secondary-button" onClick={() => setPage("details")}>
           View Details
         </button>
-        <button className="secondary-button" onClick={() => setPage("banker")}>
+        <button type="button" className="secondary-button" onClick={() => setPage("banker")}>
           Banker
         </button>
       </div>
@@ -1198,6 +1198,8 @@ function App() {
       </div>
 
       <form className="form-grid" onSubmit={handleSaveSession}>
+        {cloudError ? <div className="status-banner error-banner">{cloudError}</div> : null}
+
         <label className="field">
           <span>Date</span>
           <input type="date" value={form.date} onChange={(event) => updateForm("date", event.target.value)} />

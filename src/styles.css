@@ -80,6 +80,7 @@ button:disabled {
   color: var(--accent-deep);
   text-shadow: 0 8px 24px rgba(138, 129, 224, 0.18);
   transition: opacity 700ms ease, transform 700ms ease;
+  pointer-events: none;
 }
 
 .welcome-copy.visible {
