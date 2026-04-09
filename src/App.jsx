@@ -1142,6 +1142,9 @@ function App() {
 
   const homeView = (
     <section className="landing-shell">
+      {useCloudSync && user ? (
+        <p className="welcome-copy">Welcome back, {getUserDisplayName(user)}</p>
+      ) : null}
       <CloudIcon />
       <div className="stats-row">
         <Stat

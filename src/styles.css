@@ -72,6 +72,12 @@ button:disabled {
   padding: 12vh 0;
 }
 
+.welcome-copy {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-soft);
+}
+
 .cloud-icon {
   width: 72px;
   height: 72px;
