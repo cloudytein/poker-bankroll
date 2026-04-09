@@ -17,6 +17,14 @@ function getTodayLocalDate() {
   return local.toISOString().slice(0, 10);
 }
 
+function generateId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-AU", {
     style: "currency",
@@ -278,7 +286,7 @@ function getCalendarDays(monthKey) {
 
 function createBankerDaySnapshot(banker, savedAt) {
   return {
-    id: banker.id || crypto.randomUUID(),
+    id: banker.id || generateId(),
     date: banker.date,
     gameType: banker.gameType,
     customGameType: banker.customGameType,
@@ -873,7 +881,7 @@ function App() {
     const net = form.gameType === "tourney" ? payout - buyIn : cashOut - buyIn;
 
     const nextSession = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       date: form.date,
       gameType: form.gameType,
       customGameType: form.customGameType.trim(),
@@ -936,7 +944,7 @@ function App() {
       players: [
         ...current.players,
         {
-          id: crypto.randomUUID(),
+          id: generateId(),
           name: trimmedName,
           buyIns: [],
           cashOut: 0
