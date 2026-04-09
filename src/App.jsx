@@ -369,8 +369,8 @@ function CloudIcon() {
     <svg className="cloud-icon" viewBox="0 0 64 64" aria-hidden="true">
       <defs>
         <linearGradient id="cloudGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#b693ff" />
-          <stop offset="100%" stopColor="#7a57d1" />
+          <stop offset="0%" stopColor="#b3adf3" />
+          <stop offset="100%" stopColor="#8a81e0" />
         </linearGradient>
       </defs>
       <path
@@ -506,6 +506,7 @@ function App() {
   const useCloudSync = isSupabaseConfigured && !useDevAuthBypass;
   const [isAuthLoading, setIsAuthLoading] = useState(useCloudSync);
   const [isDataLoading, setIsDataLoading] = useState(false);
+  const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState("");
   const cloudReadyRef = useRef(false);
   const bankerDraftTimeoutRef = useRef(null);
@@ -611,6 +612,22 @@ function App() {
       subscription.unsubscribe();
     };
   }, [useCloudSync]);
+
+  useEffect(() => {
+    if (!useCloudSync || !user) {
+      setShowWelcomeMessage(false);
+      return;
+    }
+
+    setShowWelcomeMessage(true);
+    const timeoutId = window.setTimeout(() => {
+      setShowWelcomeMessage(false);
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [useCloudSync, user]);
 
   useEffect(() => {
     if (!useCloudSync || !user) {
@@ -1143,7 +1160,9 @@ function App() {
   const homeView = (
     <section className="landing-shell">
       {useCloudSync && user ? (
-        <p className="welcome-copy">Welcome back, {getUserDisplayName(user)}</p>
+        <p className={`welcome-copy ${showWelcomeMessage ? "visible" : "hidden"}`.trim()}>
+          Welcome back {getUserDisplayName(user)}
+        </p>
       ) : null}
       <CloudIcon />
       <div className="stats-row">

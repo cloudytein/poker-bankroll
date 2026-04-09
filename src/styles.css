@@ -2,19 +2,19 @@
   font-family: "Avenir Next", "Nunito Sans", "Segoe UI", sans-serif;
   color: #2f2345;
   background:
-    radial-gradient(circle at top, rgba(188, 160, 255, 0.28), transparent 32%),
-    linear-gradient(180deg, #fbf8ff 0%, #f6f1ff 52%, #f8f5ff 100%);
+    radial-gradient(circle at top, rgba(138, 129, 224, 0.26), transparent 34%),
+    linear-gradient(180deg, #fcfbff 0%, #f3f0ff 52%, #f7f4ff 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --accent: #8c69ea;
-  --accent-deep: #6f4dc7;
-  --accent-soft: #efe6ff;
+  --accent: #8a81e0;
+  --accent-deep: #6d63cf;
+  --accent-soft: #ece9ff;
   --surface: rgba(255, 255, 255, 0.82);
   --surface-strong: #ffffff;
-  --border: rgba(133, 103, 207, 0.14);
-  --shadow: 0 10px 24px rgba(110, 86, 178, 0.1);
+  --border: rgba(138, 129, 224, 0.18);
+  --shadow: 0 10px 24px rgba(109, 99, 207, 0.12);
   --text-soft: #74658d;
   --positive: #277a58;
   --negative: #b35374;
@@ -74,14 +74,28 @@ button:disabled {
 
 .welcome-copy {
   margin: 0;
-  font-size: 0.95rem;
-  color: var(--text-soft);
+  font-size: clamp(1.1rem, 2.4vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent-deep);
+  text-shadow: 0 8px 24px rgba(138, 129, 224, 0.18);
+  transition: opacity 700ms ease, transform 700ms ease;
+}
+
+.welcome-copy.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.welcome-copy.hidden {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .cloud-icon {
   width: 72px;
   height: 72px;
-  filter: drop-shadow(0 8px 16px rgba(131, 99, 207, 0.14));
+  filter: drop-shadow(0 8px 16px rgba(138, 129, 224, 0.2));
 }
 
 .stats-row,
@@ -276,7 +290,7 @@ button:disabled {
 .primary-button {
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
   color: white;
-  box-shadow: 0 14px 30px rgba(113, 79, 198, 0.2);
+  box-shadow: 0 14px 30px rgba(109, 99, 207, 0.24);
 }
 
 .primary-button:hover,
@@ -357,7 +371,7 @@ button:disabled {
 
 .chip.active {
   background: var(--accent-soft);
-  border-color: rgba(140, 105, 234, 0.28);
+  border-color: rgba(138, 129, 224, 0.3);
 }
 
 .form-actions {
@@ -391,7 +405,7 @@ button:disabled {
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid var(--border);
   border-radius: 24px;
-  box-shadow: 0 8px 18px rgba(110, 86, 178, 0.06);
+  box-shadow: 0 8px 18px rgba(109, 99, 207, 0.08);
 }
 
 .view-tab {
@@ -407,7 +421,7 @@ button:disabled {
 .view-tab.active {
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
   color: #fff;
-  box-shadow: 0 10px 22px rgba(113, 79, 198, 0.18);
+  box-shadow: 0 10px 22px rgba(109, 99, 207, 0.2);
 }
 
 .analytics-subnav {
@@ -420,7 +434,7 @@ button:disabled {
   gap: 6px;
   padding: 6px;
   background: var(--accent-soft);
-  border: 1px solid rgba(140, 105, 234, 0.18);
+  border: 1px solid rgba(138, 129, 224, 0.22);
   border-radius: 999px;
 }
 
