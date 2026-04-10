@@ -287,6 +287,24 @@ function drawSummaryStat(context, label, value, x, y, width) {
   context.fillText(value, x + 26, y + 82);
 }
 
+function drawCloudIcon(context, x, y, scale = 1) {
+  context.save();
+  context.translate(x, y);
+  context.scale(scale, scale);
+  context.beginPath();
+  context.moveTo(21, 49);
+  context.bezierCurveTo(12.7, 49, 6, 42.5, 6, 34.5);
+  context.bezierCurveTo(6, 27.7, 10.9, 21.8, 17.7, 20.4);
+  context.bezierCurveTo(19.9, 12.9, 26.2, 8, 33.7, 8);
+  context.bezierCurveTo(42.9, 8, 50.5, 15.2, 51.1, 24.2);
+  context.bezierCurveTo(55.3, 26, 58, 30, 58, 34.6);
+  context.bezierCurveTo(58, 42.5, 51.3, 49, 43, 49);
+  context.lineTo(21, 49);
+  context.closePath();
+  context.fill();
+  context.restore();
+}
+
 function createBankerSummaryImageBlob(day) {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
@@ -323,13 +341,7 @@ function createBankerSummaryImageBlob(day) {
   context.shadowColor = "transparent";
 
   context.fillStyle = "#8a81e0";
-  context.beginPath();
-  context.arc(width / 2 - 44, 150, 28, Math.PI, Math.PI * 2);
-  context.arc(width / 2 - 10, 128, 38, Math.PI, Math.PI * 2);
-  context.arc(width / 2 + 36, 150, 32, Math.PI, Math.PI * 2);
-  context.rect(width / 2 - 74, 150, 146, 34);
-  context.closePath();
-  context.fill();
+  drawCloudIcon(context, width / 2 - 96, 92, 3);
 
   context.textAlign = "center";
 
