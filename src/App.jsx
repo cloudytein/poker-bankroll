@@ -287,24 +287,6 @@ function drawSummaryStat(context, label, value, x, y, width) {
   context.fillText(value, x + 26, y + 82);
 }
 
-function drawCloudIcon(context, x, y, scale = 1) {
-  context.save();
-  context.translate(x, y);
-  context.scale(scale, scale);
-  context.beginPath();
-  context.moveTo(21, 49);
-  context.bezierCurveTo(12.7, 49, 6, 42.5, 6, 34.5);
-  context.bezierCurveTo(6, 27.7, 10.9, 21.8, 17.7, 20.4);
-  context.bezierCurveTo(19.9, 12.9, 26.2, 8, 33.7, 8);
-  context.bezierCurveTo(42.9, 8, 50.5, 15.2, 51.1, 24.2);
-  context.bezierCurveTo(55.3, 26, 58, 30, 58, 34.6);
-  context.bezierCurveTo(58, 42.5, 51.3, 49, 43, 49);
-  context.lineTo(21, 49);
-  context.closePath();
-  context.fill();
-  context.restore();
-}
-
 function createBankerSummaryImageBlob(day) {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
@@ -340,29 +322,26 @@ function createBankerSummaryImageBlob(day) {
   context.fill();
   context.shadowColor = "transparent";
 
-  context.fillStyle = "#8a81e0";
-  drawCloudIcon(context, width / 2 - 96, 92, 3);
-
   context.textAlign = "center";
 
   context.fillStyle = "#2f2345";
   context.font = "800 48px Avenir Next, Segoe UI, sans-serif";
-  context.fillText("Home Game Summary", width / 2, 230);
+  context.fillText("Home Game Summary", width / 2, 180);
 
   context.fillStyle = "#74658d";
   context.font = "600 28px Avenir Next, Segoe UI, sans-serif";
-  context.fillText(`${formatDisplayDate(day.date)} · ${getBankerGameLabel(day)}`, width / 2, 278);
+  context.fillText(`${formatDisplayDate(day.date)} · ${getBankerGameLabel(day)}`, width / 2, 228);
   context.textAlign = "left";
 
-  drawSummaryStat(context, "Buy Ins", formatCurrency(totals.totalBuyIns), 118, 338, 262);
-  drawSummaryStat(context, "Cash Out", formatCurrency(totals.totalCashOut), 410, 338, 262);
-  drawSummaryStat(context, "Balance", formatSignedCurrency(totals.totalMoney), 702, 338, 262);
+  drawSummaryStat(context, "Buy Ins", formatCurrency(totals.totalBuyIns), 118, 300, 262);
+  drawSummaryStat(context, "Cash Out", formatCurrency(totals.totalCashOut), 410, 300, 262);
+  drawSummaryStat(context, "Balance", formatSignedCurrency(totals.totalMoney), 702, 300, 262);
 
   context.fillStyle = "#2f2345";
   context.font = "800 34px Avenir Next, Segoe UI, sans-serif";
-  context.fillText("Players", 118, 530);
+  context.fillText("Players", 118, 492);
 
-  let y = 566;
+  let y = 528;
   day.players.forEach((player) => {
     const totalBuyIn = calculatePlayerTotal(player);
     const cashOut = Number(player.cashOut) || 0;
