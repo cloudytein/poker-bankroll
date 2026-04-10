@@ -244,27 +244,156 @@ function calculateBankerTotals(players) {
   };
 }
 
-function buildBankerShareText(day) {
-  const totals = calculateBankerTotals(day.players);
-  const playerLines = day.players.length
-    ? day.players
-        .map((player) => {
-          const totalBuyIn = calculatePlayerTotal(player);
-          const result = (Number(player.cashOut) || 0) - totalBuyIn;
-          return `${player.name}: ${formatSignedCurrency(result)} (${formatCurrency(totalBuyIn)} in, ${formatCurrency(Number(player.cashOut) || 0)} out)`;
-        })
-        .join("\n")
-    : "No players added.";
+function truncateText(context, text, maxWidth) {
+  if (context.measureText(text).width <= maxWidth) {
+    return text;
+  }
 
-  return [
-    "Home Game Summary",
-    `${formatDisplayDate(day.date)} · ${getBankerGameLabel(day)}`,
-    `Total Buy-Ins: ${formatCurrency(totals.totalBuyIns)}`,
-    `Total Cash Out: ${formatCurrency(totals.totalCashOut)}`,
-    `Table Balance: ${formatSignedCurrency(totals.totalMoney)}`,
-    "",
-    playerLines
-  ].join("\n");
+  let nextText = text;
+  while (nextText.length && context.measureText(`${nextText}…`).width > maxWidth) {
+    nextText = nextText.slice(0, -1);
+  }
+
+  return `${nextText || text.slice(0, 1)}…`;
+}
+
+function drawRoundRect(context, x, y, width, height, radius) {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.lineTo(x + width - radius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + radius);
+  context.lineTo(x + width, y + height - radius);
+  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  context.lineTo(x + radius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - radius);
+  context.lineTo(x, y + radius);
+  context.quadraticCurveTo(x, y, x + radius, y);
+  context.closePath();
+}
+
+function drawSummaryStat(context, label, value, x, y, width) {
+  drawRoundRect(context, x, y, width, 112, 28);
+  context.fillStyle = "rgba(255, 255, 255, 0.82)";
+  context.fill();
+  context.strokeStyle = "rgba(138, 129, 224, 0.2)";
+  context.lineWidth = 2;
+  context.stroke();
+
+  context.fillStyle = "#74658d";
+  context.font = "700 24px Avenir Next, Segoe UI, sans-serif";
+  context.fillText(label.toUpperCase(), x + 26, y + 38);
+  context.fillStyle = "#2f2345";
+  context.font = "800 34px Avenir Next, Segoe UI, sans-serif";
+  context.fillText(value, x + 26, y + 82);
+}
+
+function createBankerSummaryImageBlob(day) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  const totals = calculateBankerTotals(day.players);
+  const width = 1080;
+  const rowHeight = 98;
+  const height = Math.max(980, 640 + day.players.length * rowHeight);
+
+  canvas.width = width;
+  canvas.height = height;
+
+  const gradient = context.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, "#fcfbff");
+  gradient.addColorStop(0.55, "#f3f0ff");
+  gradient.addColorStop(1, "#f7f4ff");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+
+  context.fillStyle = "rgba(138, 129, 224, 0.18)";
+  context.beginPath();
+  context.arc(910, 120, 220, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = "rgba(255, 255, 255, 0.68)";
+  context.beginPath();
+  context.arc(100, 860, 260, 0, Math.PI * 2);
+  context.fill();
+
+  drawRoundRect(context, 72, 72, 936, height - 144, 48);
+  context.fillStyle = "rgba(255, 255, 255, 0.9)";
+  context.shadowColor = "rgba(109, 99, 207, 0.18)";
+  context.shadowBlur = 34;
+  context.shadowOffsetY = 16;
+  context.fill();
+  context.shadowColor = "transparent";
+
+  context.fillStyle = "#8a81e0";
+  context.font = "900 76px Avenir Next, Segoe UI, sans-serif";
+  context.textAlign = "center";
+  context.fillText("♠", width / 2, 166);
+
+  context.fillStyle = "#2f2345";
+  context.font = "800 48px Avenir Next, Segoe UI, sans-serif";
+  context.fillText("Home Game Summary", width / 2, 230);
+
+  context.fillStyle = "#74658d";
+  context.font = "600 28px Avenir Next, Segoe UI, sans-serif";
+  context.fillText(`${formatDisplayDate(day.date)} · ${getBankerGameLabel(day)}`, width / 2, 278);
+  context.textAlign = "left";
+
+  drawSummaryStat(context, "Buy Ins", formatCurrency(totals.totalBuyIns), 118, 338, 262);
+  drawSummaryStat(context, "Cash Out", formatCurrency(totals.totalCashOut), 410, 338, 262);
+  drawSummaryStat(context, "Balance", formatSignedCurrency(totals.totalMoney), 702, 338, 262);
+
+  context.fillStyle = "#2f2345";
+  context.font = "800 34px Avenir Next, Segoe UI, sans-serif";
+  context.fillText("Players", 118, 530);
+
+  let y = 566;
+  day.players.forEach((player) => {
+    const totalBuyIn = calculatePlayerTotal(player);
+    const cashOut = Number(player.cashOut) || 0;
+    const result = cashOut - totalBuyIn;
+
+    drawRoundRect(context, 118, y, 844, 78, 24);
+    context.fillStyle = "rgba(236, 233, 255, 0.58)";
+    context.fill();
+
+    context.fillStyle = "#2f2345";
+    context.font = "800 30px Avenir Next, Segoe UI, sans-serif";
+    context.fillText(truncateText(context, player.name, 330), 146, y + 34);
+
+    context.fillStyle = "#74658d";
+    context.font = "600 22px Avenir Next, Segoe UI, sans-serif";
+    context.fillText(`${formatCurrency(totalBuyIn)} in · ${formatCurrency(cashOut)} out`, 146, y + 61);
+
+    context.textAlign = "right";
+    context.fillStyle = result > 0 ? "#277a58" : result < 0 ? "#b35374" : "#74658d";
+    context.font = "900 34px Avenir Next, Segoe UI, sans-serif";
+    context.fillText(formatSignedCurrency(result), 930, y + 49);
+    context.textAlign = "left";
+
+    y += rowHeight;
+  });
+
+  if (!day.players.length) {
+    context.fillStyle = "#74658d";
+    context.font = "600 28px Avenir Next, Segoe UI, sans-serif";
+    context.fillText("No players added.", 118, y + 24);
+  }
+
+  context.fillStyle = "#8a81e0";
+  context.font = "700 24px Avenir Next, Segoe UI, sans-serif";
+  context.textAlign = "center";
+  context.fillText("Cloud Poker Bankroll", width / 2, height - 106);
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/png", 0.95);
+  });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function getMonthKey(dateString) {
@@ -1002,25 +1131,26 @@ function App() {
   }
 
   async function shareBankerSummary(day) {
-    const text = buildBankerShareText(day);
     setShareMessage("");
     setCloudError("");
 
     try {
-      if (navigator.share) {
+      const blob = await createBankerSummaryImageBlob(day);
+      const filename = `home-game-${day.date || "summary"}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+
+      if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           title: "Home Game Summary",
-          text
+          files: [file]
         });
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
-        setShareMessage("Home game summary copied.");
       } else {
-        setCloudError("Sharing is not supported in this browser.");
+        downloadBlob(blob, filename);
+        setShareMessage("Home game summary image downloaded.");
       }
     } catch (error) {
       if (error.name !== "AbortError") {
-        setCloudError(error.message || "Could not share the home game summary.");
+        setCloudError(error.message || "Could not create the home game summary image.");
       }
     }
   }
