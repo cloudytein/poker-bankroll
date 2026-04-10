@@ -323,9 +323,15 @@ function createBankerSummaryImageBlob(day) {
   context.shadowColor = "transparent";
 
   context.fillStyle = "#8a81e0";
-  context.font = "900 76px Avenir Next, Segoe UI, sans-serif";
+  context.beginPath();
+  context.arc(width / 2 - 44, 150, 28, Math.PI, Math.PI * 2);
+  context.arc(width / 2 - 10, 128, 38, Math.PI, Math.PI * 2);
+  context.arc(width / 2 + 36, 150, 32, Math.PI, Math.PI * 2);
+  context.rect(width / 2 - 74, 150, 146, 34);
+  context.closePath();
+  context.fill();
+
   context.textAlign = "center";
-  context.fillText("♠", width / 2, 166);
 
   context.fillStyle = "#2f2345";
   context.font = "800 48px Avenir Next, Segoe UI, sans-serif";
@@ -376,11 +382,6 @@ function createBankerSummaryImageBlob(day) {
     context.font = "600 28px Avenir Next, Segoe UI, sans-serif";
     context.fillText("No players added.", 118, y + 24);
   }
-
-  context.fillStyle = "#8a81e0";
-  context.font = "700 24px Avenir Next, Segoe UI, sans-serif";
-  context.textAlign = "center";
-  context.fillText("Cloud Poker Bankroll", width / 2, height - 106);
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), "image/png", 0.95);
