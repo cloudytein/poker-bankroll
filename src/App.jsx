@@ -97,6 +97,19 @@ function createDefaultForm() {
   };
 }
 
+function sessionToForm(session) {
+  return {
+    date: session.date,
+    gameType: session.gameType,
+    customGameType: session.customGameType || "",
+    buyIn: String(session.buyIn ?? ""),
+    payout: session.payout === null || session.payout === undefined ? "" : String(session.payout),
+    cashOut: session.cashOut === null || session.cashOut === undefined ? "" : String(session.cashOut),
+    stakes: session.stakes || "",
+    location: session.location || ""
+  };
+}
+
 function createDefaultBankerState() {
   return {
     id: null,
@@ -229,6 +242,29 @@ function calculateBankerTotals(players) {
     totalCashOut,
     totalMoney: totalBuyIns - totalCashOut
   };
+}
+
+function buildBankerShareText(day) {
+  const totals = calculateBankerTotals(day.players);
+  const playerLines = day.players.length
+    ? day.players
+        .map((player) => {
+          const totalBuyIn = calculatePlayerTotal(player);
+          const result = (Number(player.cashOut) || 0) - totalBuyIn;
+          return `${player.name}: ${formatSignedCurrency(result)} (${formatCurrency(totalBuyIn)} in, ${formatCurrency(Number(player.cashOut) || 0)} out)`;
+        })
+        .join("\n")
+    : "No players added.";
+
+  return [
+    "Home Game Summary",
+    `${formatDisplayDate(day.date)} · ${getBankerGameLabel(day)}`,
+    `Total Buy-Ins: ${formatCurrency(totals.totalBuyIns)}`,
+    `Total Cash Out: ${formatCurrency(totals.totalCashOut)}`,
+    `Table Balance: ${formatSignedCurrency(totals.totalMoney)}`,
+    "",
+    playerLines
+  ].join("\n");
 }
 
 function getMonthKey(dateString) {
@@ -496,6 +532,7 @@ function App() {
   const [banker, setBanker] = useState(localBanker);
   const [bankerDays, setBankerDays] = useState(localBankerDays);
   const [form, setForm] = useState(createDefaultForm);
+  const [editingSessionId, setEditingSessionId] = useState(null);
   const [errors, setErrors] = useState({});
   const [gameFilter, setGameFilter] = useState("All");
   const [resultFilter, setResultFilter] = useState("All");
@@ -513,6 +550,7 @@ function App() {
   const [authMessage, setAuthMessage] = useState("");
   const [authError, setAuthError] = useState("");
   const [cloudError, setCloudError] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
   const [user, setUser] = useState(null);
   const [useDevAuthBypass, setUseDevAuthBypass] = useState(getStoredDevAuthBypass);
   const useCloudSync = isSupabaseConfigured && !useDevAuthBypass;
@@ -829,6 +867,22 @@ function App() {
     setErrors((current) => ({ ...current, [field]: "" }));
   }
 
+  function openNewSessionForm() {
+    setEditingSessionId(null);
+    setForm(createDefaultForm());
+    setErrors({});
+    setCloudError("");
+    setPage("log");
+  }
+
+  function openEditSession(session) {
+    setEditingSessionId(session.id);
+    setForm(sessionToForm(session));
+    setErrors({});
+    setCloudError("");
+    setPage("log");
+  }
+
   function validateForm() {
     const nextErrors = {};
     const buyIn = Number(form.buyIn);
@@ -884,8 +938,12 @@ function App() {
     const cashOut = form.gameType === "tourney" ? null : Number(form.cashOut);
     const net = form.gameType === "tourney" ? payout - buyIn : cashOut - buyIn;
 
+    const existingSession = editingSessionId
+      ? sessions.find((session) => session.id === editingSessionId)
+      : null;
+
     const nextSession = {
-      id: generateId(),
+      id: editingSessionId || generateId(),
       date: form.date,
       gameType: form.gameType,
       customGameType: form.customGameType.trim(),
@@ -895,13 +953,14 @@ function App() {
       stakes: form.gameType === "tourney" ? "" : form.stakes.trim(),
       location: form.location.trim(),
       net,
-      createdAt: Date.now()
+      createdAt: existingSession?.createdAt || Date.now()
     };
 
     if (useCloudSync && user) {
-      const { error } = await supabase
-        .from("poker_sessions")
-        .insert(sessionToRow(nextSession, user.id));
+      const row = sessionToRow(nextSession, user.id);
+      const { error } = editingSessionId
+        ? await supabase.from("poker_sessions").update(row).eq("id", editingSessionId)
+        : await supabase.from("poker_sessions").insert(row);
 
       if (error) {
         setCloudError(error.message);
@@ -909,7 +968,14 @@ function App() {
       }
     }
 
-    setSessions((current) => sortSessionsNewestFirst([nextSession, ...current]));
+    setSessions((current) =>
+      sortSessionsNewestFirst(
+        editingSessionId
+          ? current.map((session) => (session.id === editingSessionId ? nextSession : session))
+          : [nextSession, ...current]
+      )
+    );
+    setEditingSessionId(null);
     setForm(createDefaultForm());
     setErrors({});
     setPage("details");
@@ -925,8 +991,37 @@ function App() {
     }
 
     setSessions((current) => current.filter((session) => session.id !== id));
+    if (editingSessionId === id) {
+      setEditingSessionId(null);
+      setForm(createDefaultForm());
+      setPage("details");
+    }
     if (expandedSessionId === id) {
       setExpandedSessionId(null);
+    }
+  }
+
+  async function shareBankerSummary(day) {
+    const text = buildBankerShareText(day);
+    setShareMessage("");
+    setCloudError("");
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Home Game Summary",
+          text
+        });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setShareMessage("Home game summary copied.");
+      } else {
+        setCloudError("Sharing is not supported in this browser.");
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        setCloudError(error.message || "Could not share the home game summary.");
+      }
     }
   }
 
@@ -1187,7 +1282,7 @@ function App() {
         <Stat label="Sessions" value={stats.sessions} />
       </div>
       <div className="action-row">
-        <button type="button" className="primary-button" onClick={() => setPage("log")}>
+        <button type="button" className="primary-button" onClick={openNewSessionForm}>
           Log Session
         </button>
         <button type="button" className="secondary-button" onClick={() => setPage("details")}>
@@ -1206,7 +1301,7 @@ function App() {
         <button className="ghost-button" onClick={() => setPage("home")}>
           Back
         </button>
-        <h1>Log Session</h1>
+        <h1>{editingSessionId ? "Edit Session" : "Log Session"}</h1>
       </div>
 
       <form className="form-grid" onSubmit={handleSaveSession}>
@@ -1321,8 +1416,13 @@ function App() {
 
         <div className="form-actions">
           <button className="primary-button" type="submit">
-            Save Session
+            {editingSessionId ? "Update Session" : "Save Session"}
           </button>
+          {editingSessionId ? (
+            <button className="delete-button" type="button" onClick={() => deleteSession(editingSessionId)}>
+              Delete Session
+            </button>
+          ) : null}
         </div>
       </form>
     </section>
@@ -1335,7 +1435,7 @@ function App() {
           Back
         </button>
         <h1>View Details</h1>
-        <button className="primary-button compact" onClick={() => setPage("log")}>
+        <button className="primary-button compact" onClick={openNewSessionForm}>
           Log Session
         </button>
       </div>
@@ -1421,8 +1521,8 @@ function App() {
                         </div>
                       </button>
 
-                      <button className="delete-button" onClick={() => deleteSession(session.id)}>
-                        Delete
+                      <button className="secondary-button compact" onClick={() => openEditSession(session)}>
+                        Edit
                       </button>
                     </div>
 
@@ -1587,6 +1687,13 @@ function App() {
             Saved Sessions
           </button>
           <button
+            className="secondary-button compact"
+            onClick={() => shareBankerSummary(banker)}
+            disabled={!banker.players.length}
+          >
+            Share
+          </button>
+          <button
             className="primary-button compact"
             onClick={saveBankerDay}
             disabled={
@@ -1605,6 +1712,8 @@ function App() {
         <Stat label="Total Buy Ins" value={formatCurrency(bankerTotals.totalBuyIns)} />
         <Stat label="Date" value={formatDisplayDate(banker.date)} />
       </div>
+
+      {shareMessage ? <div className="status-banner success-banner">{shareMessage}</div> : null}
 
       <label className="field">
         <span>Banker Date</span>
@@ -1774,6 +1883,8 @@ function App() {
       </div>
 
       <div className="saved-section">
+        {shareMessage ? <div className="status-banner success-banner">{shareMessage}</div> : null}
+
         <div className="stack">
           {bankerDays.length ? (
             bankerDays.map((day) => {
@@ -1802,6 +1913,9 @@ function App() {
 
                     <button className="secondary-button compact" onClick={() => openBankerDay(day)}>
                       Edit
+                    </button>
+                    <button className="secondary-button compact" onClick={() => shareBankerSummary(day)}>
+                      Share
                     </button>
                     <button className="delete-button" onClick={() => deleteBankerDay(day.id)}>
                       Delete
