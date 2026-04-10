@@ -326,7 +326,7 @@ function createBankerSummaryImageBlob(day) {
 
   context.fillStyle = "#2f2345";
   context.font = "800 48px Avenir Next, Segoe UI, sans-serif";
-  context.fillText("Home Game Summary", width / 2, 180);
+  context.fillText(`${getBankerGameLabel(day)} Summary`, width / 2, 180);
 
   context.fillStyle = "#74658d";
   context.font = "600 28px Avenir Next, Segoe UI, sans-serif";
@@ -1133,7 +1133,7 @@ function App() {
 
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({
-          title: "Home Game Summary",
+          title: `${getBankerGameLabel(day)} Summary`,
           files: [file]
         });
       } else {
@@ -1904,7 +1904,8 @@ function App() {
         {banker.players.length
           ? banker.players.map((player) => {
               const totalBuyIn = calculatePlayerTotal(player);
-              const result = Number(player.cashOut) - totalBuyIn;
+              const cashOut = Number(player.cashOut) || 0;
+              const result = cashOut - totalBuyIn;
               const expanded = expandedPlayerId === player.id;
 
               return (
@@ -1920,7 +1921,7 @@ function App() {
                       </div>
                       <div className="card-summary">
                         <strong>{formatSignedCurrency(result)}</strong>
-                        <span>{formatCurrency(totalBuyIn)} in</span>
+                        <span>{formatCurrency(cashOut)} left · {formatCurrency(totalBuyIn)} in</span>
                       </div>
                     </button>
 
@@ -1984,7 +1985,7 @@ function App() {
                           : "No buy-ins yet"}
                       </p>
                       <p>Winnings/Losses: {formatSignedCurrency(result)}</p>
-                      <p>Cash Out: {formatCurrency(Number(player.cashOut) || 0)}</p>
+                      <p>Amount Left: {formatCurrency(cashOut)}</p>
                     </div>
                   ) : null}
                 </article>
