@@ -1786,7 +1786,7 @@ function App() {
               const expanded = expandedPlayerId === player.id;
 
               return (
-                <article key={player.id} className="card">
+                <article key={player.id} className="card banker-player-card">
                   <div className="card-row">
                     <button
                       className="card-main"
@@ -1802,7 +1802,7 @@ function App() {
                       </div>
                     </button>
 
-                    <button className="delete-button" onClick={() => removePlayer(player.id)}>
+                    <button className="delete-button compact banker-remove-button" onClick={() => removePlayer(player.id)}>
                       Remove
                     </button>
                   </div>
