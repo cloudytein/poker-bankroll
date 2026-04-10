@@ -748,6 +748,46 @@ button:disabled {
     justify-self: start;
   }
 
+  .details-tabs {
+    width: 100%;
+  }
+
+  .details-tabs .tab-row,
+  .filters {
+    width: 100%;
+  }
+
+  .inline-field {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .card:not(.banker-player-card) {
+    padding: 14px;
+  }
+
+  .card:not(.banker-player-card) .card-row {
+    gap: 10px;
+  }
+
+  .card:not(.banker-player-card) .card-main {
+    align-items: flex-start;
+    padding: 6px;
+  }
+
+  .card:not(.banker-player-card) .card-main h2 {
+    font-size: 1rem;
+  }
+
+  .card:not(.banker-player-card) .card-summary {
+    justify-items: start;
+  }
+
+  .card:not(.banker-player-card) .delete-button,
+  .card:not(.banker-player-card) .secondary-button.compact {
+    width: 100%;
+  }
+
   .banker-player-card .card-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
