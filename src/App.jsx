@@ -11,6 +11,7 @@ const GAME_OPTIONS = ["tourney", "cash game", "home game", "online", "other"];
 const BANKER_GAME_OPTIONS = ["cash game", "home game", "online", "other"];
 const RESULT_FILTERS = ["All", "Wins", "Losses", "Even"];
 const DEFAULT_STAKES = [".50/1", "1/2", "1/3", "2/3", "2/5", "5/5", "5/10"];
+const CUSTOM_STAKE_OPTION = "__custom__";
 
 function getTodayLocalDate() {
   const now = new Date();
@@ -741,12 +742,6 @@ function App() {
   }, [stakeOptions]);
 
   useEffect(() => {
-    if (form.stakes && !stakeOptions.includes(form.stakes)) {
-      setStakeOptions((current) => Array.from(new Set([...current, form.stakes])));
-    }
-  }, [form.stakes, stakeOptions]);
-
-  useEffect(() => {
     if (!useCloudSync) {
       setUser(null);
       setIsAuthLoading(false);
@@ -1017,20 +1012,10 @@ function App() {
     setErrors((current) => ({ ...current, [field]: "" }));
   }
 
-  function addCustomStake() {
-    const nextStake = customStakeInput.trim();
-    if (!nextStake) {
-      return;
-    }
-
-    setStakeOptions((current) => Array.from(new Set([...current, nextStake])));
-    updateForm("stakes", nextStake);
-    setCustomStakeInput("");
-  }
-
   function openNewSessionForm() {
     setEditingSessionId(null);
     setForm(createDefaultForm());
+    setCustomStakeInput("");
     setErrors({});
     setCloudError("");
     setPage("log");
@@ -1039,6 +1024,7 @@ function App() {
   function openEditSession(session) {
     setEditingSessionId(session.id);
     setForm(sessionToForm(session));
+    setCustomStakeInput(stakeOptions.includes(session.stakes) ? "" : session.stakes || "");
     setErrors({});
     setCloudError("");
     setPage("log");
@@ -1103,6 +1089,12 @@ function App() {
       ? sessions.find((session) => session.id === editingSessionId)
       : null;
 
+    const finalStake = form.gameType === "tourney" ? "" : form.stakes.trim();
+
+    if (finalStake && !stakeOptions.includes(finalStake)) {
+      setStakeOptions((current) => Array.from(new Set([...current, finalStake])));
+    }
+
     const nextSession = {
       id: editingSessionId || generateId(),
       date: form.date,
@@ -1111,7 +1103,7 @@ function App() {
       buyIn,
       payout,
       cashOut,
-      stakes: form.gameType === "tourney" ? "" : form.stakes.trim(),
+      stakes: finalStake,
       location: form.location.trim(),
       net,
       createdAt: existingSession?.createdAt || Date.now()
@@ -1553,31 +1545,48 @@ function App() {
 
                 <label className="field">
                   <span>Stakes</span>
-                  <select value={form.stakes} onChange={(event) => updateForm("stakes", event.target.value)}>
+                  <select
+                    value={
+                      form.stakes
+                        ? stakeOptions.includes(form.stakes)
+                          ? form.stakes
+                          : CUSTOM_STAKE_OPTION
+                        : ""
+                    }
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+
+                      if (nextValue === CUSTOM_STAKE_OPTION) {
+                        setCustomStakeInput(
+                          form.stakes && !stakeOptions.includes(form.stakes) ? form.stakes : ""
+                        );
+                        updateForm("stakes", "");
+                        return;
+                      }
+
+                      setCustomStakeInput("");
+                      updateForm("stakes", nextValue);
+                    }}
+                  >
                     <option value="">Select stakes</option>
                     {stakeOptions.map((option) => (
                       <option key={option} value={option}>
                         {option}
                       </option>
                     ))}
+                    <option value={CUSTOM_STAKE_OPTION}>Custom</option>
                   </select>
-                  <div className="inline-add-row">
+                  {(!stakeOptions.includes(form.stakes) || customStakeInput) ? (
                     <input
                       type="text"
-                      placeholder="Add custom stake"
+                      placeholder="Custom stake"
                       value={customStakeInput}
-                      onChange={(event) => setCustomStakeInput(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          addCustomStake();
-                        }
+                      onChange={(event) => {
+                        setCustomStakeInput(event.target.value);
+                        updateForm("stakes", event.target.value);
                       }}
                     />
-                    <button type="button" className="secondary-button compact" onClick={addCustomStake}>
-                      Add
-                    </button>
-                  </div>
+                  ) : null}
                   {errors.stakes ? <small>{errors.stakes}</small> : null}
                 </label>
               </>
