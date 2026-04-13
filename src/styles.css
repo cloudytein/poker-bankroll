@@ -389,6 +389,13 @@ button:disabled {
   gap: 12px;
 }
 
+.inline-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .details-toolbar {
   display: flex;
   justify-content: flex-start;

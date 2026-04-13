@@ -5,10 +5,12 @@ const SESSION_STORAGE_KEY = "cloud-bankroll-sessions-v1";
 const BANKER_STORAGE_KEY = "cloud-banker-v1";
 const BANKER_DAYS_STORAGE_KEY = "cloud-banker-days-v1";
 const DEV_AUTH_BYPASS_STORAGE_KEY = "cloud-dev-auth-bypass-v1";
+const STAKES_STORAGE_KEY = "cloud-bankroll-stakes-v1";
 
 const GAME_OPTIONS = ["tourney", "cash game", "home game", "online", "other"];
 const BANKER_GAME_OPTIONS = ["cash game", "home game", "online", "other"];
 const RESULT_FILTERS = ["All", "Wins", "Losses", "Even"];
+const DEFAULT_STAKES = [".50/1", "1/2", "1/3", "2/3", "2/5", "5/5", "5/10"];
 
 function getTodayLocalDate() {
   const now = new Date();
@@ -200,6 +202,21 @@ function parseStoredJson(key, fallback) {
     return raw ? JSON.parse(raw) : fallback;
   } catch {
     return fallback;
+  }
+}
+
+function getStoredStakeOptions() {
+  if (typeof window === "undefined") {
+    return DEFAULT_STAKES;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STAKES_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const values = Array.isArray(parsed) ? parsed.filter((value) => typeof value === "string") : [];
+    return Array.from(new Set([...DEFAULT_STAKES, ...values.map((value) => value.trim()).filter(Boolean)]));
+  } catch {
+    return DEFAULT_STAKES;
   }
 }
 
@@ -655,6 +672,8 @@ function App() {
   const [form, setForm] = useState(createDefaultForm);
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [errors, setErrors] = useState({});
+  const [stakeOptions, setStakeOptions] = useState(getStoredStakeOptions);
+  const [customStakeInput, setCustomStakeInput] = useState("");
   const [gameFilter, setGameFilter] = useState("All");
   const [resultFilter, setResultFilter] = useState("All");
   const [expandedSessionId, setExpandedSessionId] = useState(null);
@@ -716,6 +735,16 @@ function App() {
       useDevAuthBypass ? "true" : "false"
     );
   }, [useDevAuthBypass]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STAKES_STORAGE_KEY, JSON.stringify(stakeOptions));
+  }, [stakeOptions]);
+
+  useEffect(() => {
+    if (form.stakes && !stakeOptions.includes(form.stakes)) {
+      setStakeOptions((current) => Array.from(new Set([...current, form.stakes])));
+    }
+  }, [form.stakes, stakeOptions]);
 
   useEffect(() => {
     if (!useCloudSync) {
@@ -986,6 +1015,17 @@ function App() {
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: "" }));
+  }
+
+  function addCustomStake() {
+    const nextStake = customStakeInput.trim();
+    if (!nextStake) {
+      return;
+    }
+
+    setStakeOptions((current) => Array.from(new Set([...current, nextStake])));
+    updateForm("stakes", nextStake);
+    setCustomStakeInput("");
   }
 
   function openNewSessionForm() {
@@ -1513,12 +1553,31 @@ function App() {
 
                 <label className="field">
                   <span>Stakes</span>
-                  <input
-                    type="text"
-                    placeholder="1/3, 2/5, home .50/1"
-                    value={form.stakes}
-                    onChange={(event) => updateForm("stakes", event.target.value)}
-                  />
+                  <select value={form.stakes} onChange={(event) => updateForm("stakes", event.target.value)}>
+                    <option value="">Select stakes</option>
+                    {stakeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="inline-add-row">
+                    <input
+                      type="text"
+                      placeholder="Add custom stake"
+                      value={customStakeInput}
+                      onChange={(event) => setCustomStakeInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addCustomStake();
+                        }
+                      }}
+                    />
+                    <button type="button" className="secondary-button compact" onClick={addCustomStake}>
+                      Add
+                    </button>
+                  </div>
                   {errors.stakes ? <small>{errors.stakes}</small> : null}
                 </label>
               </>
