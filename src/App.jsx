@@ -917,12 +917,7 @@ function App() {
     setBanker(sharedBanker);
     setExpandedPlayerId(null);
     setPlayerBuyInInputs({});
-    setPlayerCashOutInputs(
-      sharedBanker.players.reduce((map, player) => {
-        map[player.id] = player.cashOut === 0 ? "" : String(player.cashOut);
-        return map;
-      }, {})
-    );
+    setPlayerCashOutInputs({});
     setBankerRootPage("home");
     setBankerBackPage("home");
     setShareMessage("Shared banker session loaded.");
@@ -1486,12 +1481,7 @@ function App() {
     );
     setExpandedPlayerId(null);
     setPlayerBuyInInputs({});
-    setPlayerCashOutInputs(
-      sortedPlayers.reduce((map, player) => {
-        map[player.id] = player.cashOut === 0 ? "" : String(player.cashOut);
-        return map;
-      }, {})
-    );
+    setPlayerCashOutInputs({});
     setShareMessage("");
     setPage("banker");
   }
@@ -2225,8 +2215,11 @@ function App() {
                         }
                       }}
                     />
-                    <button className="secondary-button compact buyin-button" onClick={() => addBuyIn(player.id)}>
-                      Add Buy In
+                    <button
+                      className="secondary-button compact player-action-button"
+                      onClick={() => addBuyIn(player.id)}
+                    >
+                      Buy In
                     </button>
                     <input
                       type="number"
@@ -2256,6 +2249,12 @@ function App() {
                         }
                       }}
                     />
+                    <button
+                      className="secondary-button compact player-action-button"
+                      onClick={() => addCashOut(player.id)}
+                    >
+                      Cash Out
+                    </button>
                   </div>
 
                   {expanded ? (
