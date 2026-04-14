@@ -1683,6 +1683,17 @@ function App() {
           Banker
         </button>
       </div>
+      {bottomStatus ? <div className="bottom-status-note">{bottomStatus}</div> : null}
+      {useCloudSync && user ? (
+        <button className="ghost-button compact bottom-status-action" onClick={signOut}>
+          Sign Out
+        </button>
+      ) : null}
+      {isSupabaseConfigured && useDevAuthBypass ? (
+        <button className="ghost-button compact bottom-status-action" onClick={disableDevBypass}>
+          Re-enable Cloud Sync
+        </button>
+      ) : null}
     </section>
   );
 
@@ -2424,17 +2435,6 @@ function App() {
       {page === "details" ? detailsView : null}
       {page === "banker" ? bankerView : null}
       {page === "banker-history" ? bankerHistoryView : null}
-      {bottomStatus ? <div className="bottom-status-note">{bottomStatus}</div> : null}
-      {useCloudSync && user ? (
-        <button className="ghost-button compact bottom-status-action" onClick={signOut}>
-          Sign Out
-        </button>
-      ) : null}
-      {isSupabaseConfigured && useDevAuthBypass ? (
-        <button className="ghost-button compact bottom-status-action" onClick={disableDevBypass}>
-          Re-enable Cloud Sync
-        </button>
-      ) : null}
     </main>
   );
 
