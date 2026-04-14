@@ -262,6 +262,14 @@ function calculateBankerTotals(players) {
   };
 }
 
+function sortBankerPlayersByResult(players) {
+  return [...players].sort((left, right) => {
+    const leftResult = (Number(left.cashOut) || 0) - calculatePlayerTotal(left);
+    const rightResult = (Number(right.cashOut) || 0) - calculatePlayerTotal(right);
+    return rightResult - leftResult || left.name.localeCompare(right.name);
+  });
+}
+
 function truncateText(context, text, maxWidth) {
   if (context.measureText(text).width <= maxWidth) {
     return text;
@@ -309,9 +317,10 @@ function createBankerSummaryImageBlob(day) {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   const totals = calculateBankerTotals(day.players);
+  const sortedPlayers = sortBankerPlayersByResult(day.players);
   const width = 1080;
   const rowHeight = 98;
-  const height = Math.max(980, 640 + day.players.length * rowHeight);
+  const height = Math.max(980, 640 + sortedPlayers.length * rowHeight);
 
   canvas.width = width;
   canvas.height = height;
@@ -360,7 +369,7 @@ function createBankerSummaryImageBlob(day) {
   context.fillText("Players", 118, 492);
 
   let y = 528;
-  day.players.forEach((player) => {
+  sortedPlayers.forEach((player) => {
     const totalBuyIn = calculatePlayerTotal(player);
     const cashOut = Number(player.cashOut) || 0;
     const result = cashOut - totalBuyIn;
@@ -386,7 +395,7 @@ function createBankerSummaryImageBlob(day) {
     y += rowHeight;
   });
 
-  if (!day.players.length) {
+  if (!sortedPlayers.length) {
     context.fillStyle = "#74658d";
     context.font = "600 28px Avenir Next, Segoe UI, sans-serif";
     context.fillText("No players added.", 118, y + 24);
@@ -675,6 +684,7 @@ function App() {
   const [errors, setErrors] = useState({});
   const [stakeOptions, setStakeOptions] = useState(getStoredStakeOptions);
   const [customStakeInput, setCustomStakeInput] = useState("");
+  const [isCustomStakeSelected, setIsCustomStakeSelected] = useState(false);
   const [gameFilter, setGameFilter] = useState("All");
   const [resultFilter, setResultFilter] = useState("All");
   const [expandedSessionId, setExpandedSessionId] = useState(null);
@@ -1016,6 +1026,7 @@ function App() {
     setEditingSessionId(null);
     setForm(createDefaultForm());
     setCustomStakeInput("");
+    setIsCustomStakeSelected(false);
     setErrors({});
     setCloudError("");
     setPage("log");
@@ -1024,7 +1035,9 @@ function App() {
   function openEditSession(session) {
     setEditingSessionId(session.id);
     setForm(sessionToForm(session));
-    setCustomStakeInput(stakeOptions.includes(session.stakes) ? "" : session.stakes || "");
+    const isCustomStake = Boolean(session.stakes) && !stakeOptions.includes(session.stakes);
+    setCustomStakeInput(isCustomStake ? session.stakes : "");
+    setIsCustomStakeSelected(isCustomStake);
     setErrors({});
     setCloudError("");
     setPage("log");
@@ -1130,6 +1143,8 @@ function App() {
     );
     setEditingSessionId(null);
     setForm(createDefaultForm());
+    setCustomStakeInput("");
+    setIsCustomStakeSelected(false);
     setErrors({});
     setPage("details");
   }
@@ -1147,6 +1162,8 @@ function App() {
     if (editingSessionId === id) {
       setEditingSessionId(null);
       setForm(createDefaultForm());
+      setCustomStakeInput("");
+      setIsCustomStakeSelected(false);
       setPage("details");
     }
     if (expandedSessionId === id) {
@@ -1299,18 +1316,45 @@ function App() {
   }
 
   function openBankerDay(day) {
+    const sortedPlayers = sortBankerPlayersByResult(day.players);
     setBanker(
       normalizeBankerState({
         id: day.id,
         date: day.date,
         gameType: day.gameType || "",
         customGameType: day.customGameType || "",
-        players: day.players
+        players: sortedPlayers
       })
     );
     setExpandedPlayerId(null);
     setPlayerBuyInInputs({});
     setPlayerCashOutInputs({});
+    setPage("banker");
+  }
+
+  function openBankerDayCopy(day) {
+    const sortedPlayers = sortBankerPlayersByResult(day.players);
+    setBanker(
+      normalizeBankerState({
+        id: null,
+        date: day.date,
+        gameType: day.gameType || "",
+        customGameType: day.customGameType || "",
+        players: sortedPlayers.map((player) => ({
+          ...player,
+          buyIns: [...player.buyIns]
+        }))
+      })
+    );
+    setExpandedPlayerId(null);
+    setPlayerBuyInInputs({});
+    setPlayerCashOutInputs(
+      sortedPlayers.reduce((map, player) => {
+        map[player.id] = player.cashOut === 0 ? "" : String(player.cashOut);
+        return map;
+      }, {})
+    );
+    setShareMessage("");
     setPage("banker");
   }
 
@@ -1547,23 +1591,25 @@ function App() {
                   <span>Stakes</span>
                   <select
                     value={
-                      form.stakes
-                        ? stakeOptions.includes(form.stakes)
-                          ? form.stakes
-                          : CUSTOM_STAKE_OPTION
-                        : ""
+                      isCustomStakeSelected
+                        ? CUSTOM_STAKE_OPTION
+                        : form.stakes
+                          ? stakeOptions.includes(form.stakes)
+                            ? form.stakes
+                            : ""
+                          : ""
                     }
                     onChange={(event) => {
                       const nextValue = event.target.value;
 
                       if (nextValue === CUSTOM_STAKE_OPTION) {
-                        setCustomStakeInput(
-                          form.stakes && !stakeOptions.includes(form.stakes) ? form.stakes : ""
-                        );
-                        updateForm("stakes", "");
+                        setIsCustomStakeSelected(true);
+                        setCustomStakeInput(form.stakes && !stakeOptions.includes(form.stakes) ? form.stakes : "");
+                        updateForm("stakes", customStakeInput.trim());
                         return;
                       }
 
+                      setIsCustomStakeSelected(false);
                       setCustomStakeInput("");
                       updateForm("stakes", nextValue);
                     }}
@@ -1576,7 +1622,7 @@ function App() {
                     ))}
                     <option value={CUSTOM_STAKE_OPTION}>Custom</option>
                   </select>
-                  {(!stakeOptions.includes(form.stakes) || customStakeInput) ? (
+                  {isCustomStakeSelected ? (
                     <input
                       type="text"
                       placeholder="Custom stake"
@@ -1970,7 +2016,7 @@ function App() {
 
       <div className="stack">
         {banker.players.length
-          ? banker.players.map((player) => {
+          ? sortBankerPlayersByResult(banker.players).map((player) => {
               const totalBuyIn = calculatePlayerTotal(player);
               const cashOut = Number(player.cashOut) || 0;
               const result = cashOut - totalBuyIn;
@@ -2004,6 +2050,7 @@ function App() {
                       min="0"
                       step="0.01"
                       inputMode="decimal"
+                      enterKeyHint="done"
                       placeholder="Buy in"
                       value={playerBuyInInputs[player.id] ?? ""}
                       onChange={(event) =>
@@ -2027,14 +2074,22 @@ function App() {
                       min="0"
                       step="0.01"
                       inputMode="decimal"
+                      enterKeyHint="done"
                       placeholder="Cashout"
                       value={playerCashOutInputs[player.id] ?? ""}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
                         setPlayerCashOutInputs((current) => ({
                           ...current,
-                          [player.id]: event.target.value
-                        }))
-                      }
+                          [player.id]: nextValue
+                        }));
+                        updateCashOut(player.id, nextValue);
+                      }}
+                      onBlur={() => {
+                        if ((playerCashOutInputs[player.id] ?? "") !== "") {
+                          addCashOut(player.id);
+                        }
+                      }}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           event.preventDefault();
@@ -2102,8 +2157,8 @@ function App() {
                       </div>
                     </button>
 
-                    <button className="secondary-button compact" onClick={() => openBankerDay(day)}>
-                      Edit
+                    <button className="secondary-button compact" onClick={() => openBankerDayCopy(day)}>
+                      Edit Copy
                     </button>
                     <button className="secondary-button compact" onClick={() => shareBankerSummary(day)}>
                       Share
