@@ -6,6 +6,7 @@ const BANKER_STORAGE_KEY = "cloud-banker-v1";
 const BANKER_DAYS_STORAGE_KEY = "cloud-banker-days-v1";
 const DEV_AUTH_BYPASS_STORAGE_KEY = "cloud-dev-auth-bypass-v1";
 const STAKES_STORAGE_KEY = "cloud-bankroll-stakes-v1";
+const SHARED_BANKER_PARAM = "sharedBanker";
 
 const GAME_OPTIONS = ["tourney", "cash game", "home game", "online", "other"];
 const BANKER_GAME_OPTIONS = ["cash game", "home game", "online", "other"];
@@ -145,7 +146,13 @@ function clearAuthCallbackUrl() {
     return;
   }
 
-  window.history.replaceState({}, document.title, window.location.pathname);
+  const url = new URL(window.location.href);
+  const sharedBanker = url.searchParams.get(SHARED_BANKER_PARAM);
+  const nextUrl = sharedBanker
+    ? `${window.location.pathname}?${new URLSearchParams([[SHARED_BANKER_PARAM, sharedBanker]]).toString()}`
+    : window.location.pathname;
+
+  window.history.replaceState({}, document.title, nextUrl);
 }
 
 function getStoredDevAuthBypass() {
@@ -218,6 +225,39 @@ function getStoredStakeOptions() {
     return Array.from(new Set([...DEFAULT_STAKES, ...values.map((value) => value.trim()).filter(Boolean)]));
   } catch {
     return DEFAULT_STAKES;
+  }
+}
+
+function encodeSharedBankerSession(day) {
+  const payload = {
+    date: day.date,
+    gameType: day.gameType || "",
+    customGameType: day.customGameType || "",
+    players: sortBankerPlayersByResult(day.players).map((player) => ({
+      id: generateId(),
+      name: player.name,
+      buyIns: [...player.buyIns],
+      cashOut: Number(player.cashOut) || 0
+    }))
+  };
+
+  const json = JSON.stringify(payload);
+  return btoa(unescape(encodeURIComponent(json)));
+}
+
+function decodeSharedBankerSession(value) {
+  try {
+    const json = decodeURIComponent(escape(atob(value)));
+    const parsed = JSON.parse(json);
+    return normalizeBankerState({
+      id: null,
+      date: parsed.date,
+      gameType: parsed.gameType,
+      customGameType: parsed.customGameType,
+      players: Array.isArray(parsed.players) ? parsed.players : []
+    });
+  } catch {
+    return null;
   }
 }
 
@@ -702,6 +742,7 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [cloudError, setCloudError] = useState("");
   const [shareMessage, setShareMessage] = useState("");
+  const [isSharingBanker, setIsSharingBanker] = useState(false);
   const [user, setUser] = useState(null);
   const [useDevAuthBypass, setUseDevAuthBypass] = useState(getStoredDevAuthBypass);
   const useCloudSync = isSupabaseConfigured && !useDevAuthBypass;
@@ -832,6 +873,43 @@ function App() {
     return () => {
       window.clearTimeout(timeoutId);
     };
+  }, [useCloudSync, user]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (useCloudSync && !user) {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    const sharedValue = url.searchParams.get(SHARED_BANKER_PARAM);
+    if (!sharedValue) {
+      return;
+    }
+
+    const sharedBanker = decodeSharedBankerSession(sharedValue);
+    if (!sharedBanker) {
+      setCloudError("That shared banker session link is invalid.");
+      return;
+    }
+
+    setBanker(sharedBanker);
+    setExpandedPlayerId(null);
+    setPlayerBuyInInputs({});
+    setPlayerCashOutInputs(
+      sharedBanker.players.reduce((map, player) => {
+        map[player.id] = player.cashOut === 0 ? "" : String(player.cashOut);
+        return map;
+      }, {})
+    );
+    setShareMessage("Shared banker session loaded.");
+    setPage("banker");
+    url.searchParams.delete(SHARED_BANKER_PARAM);
+    const nextSearch = url.searchParams.toString();
+    window.history.replaceState({}, document.title, `${url.pathname}${nextSearch ? `?${nextSearch}` : ""}`);
   }, [useCloudSync, user]);
 
   useEffect(() => {
@@ -1035,9 +1113,8 @@ function App() {
   function openEditSession(session) {
     setEditingSessionId(session.id);
     setForm(sessionToForm(session));
-    const isCustomStake = Boolean(session.stakes) && !stakeOptions.includes(session.stakes);
-    setCustomStakeInput(isCustomStake ? session.stakes : "");
-    setIsCustomStakeSelected(isCustomStake);
+    setCustomStakeInput("");
+    setIsCustomStakeSelected(false);
     setErrors({});
     setCloudError("");
     setPage("log");
@@ -1172,6 +1249,11 @@ function App() {
   }
 
   async function shareBankerSummary(day) {
+    if (isSharingBanker) {
+      return;
+    }
+
+    setIsSharingBanker(true);
     setShareMessage("");
     setCloudError("");
 
@@ -1193,6 +1275,42 @@ function App() {
       if (error.name !== "AbortError") {
         setCloudError(error.message || "Could not create the home game summary image.");
       }
+    } finally {
+      setIsSharingBanker(false);
+    }
+  }
+
+  async function shareBankerLink(day) {
+    if (isSharingBanker) {
+      return;
+    }
+
+    setIsSharingBanker(true);
+    setShareMessage("");
+    setCloudError("");
+
+    try {
+      const encoded = encodeSharedBankerSession(day);
+      const shareUrl = new URL(window.location.origin + window.location.pathname);
+      shareUrl.searchParams.set(SHARED_BANKER_PARAM, encoded);
+
+      if (navigator.share) {
+        await navigator.share({
+          title: `${getBankerGameLabel(day)} Session`,
+          url: shareUrl.toString()
+        });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl.toString());
+        setShareMessage("Banker session link copied.");
+      } else {
+        setCloudError("Link sharing is not supported in this browser.");
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        setCloudError(error.message || "Could not share the banker session link.");
+      }
+    } finally {
+      setIsSharingBanker(false);
     }
   }
 
@@ -1324,26 +1442,6 @@ function App() {
         gameType: day.gameType || "",
         customGameType: day.customGameType || "",
         players: sortedPlayers
-      })
-    );
-    setExpandedPlayerId(null);
-    setPlayerBuyInInputs({});
-    setPlayerCashOutInputs({});
-    setPage("banker");
-  }
-
-  function openBankerDayCopy(day) {
-    const sortedPlayers = sortBankerPlayersByResult(day.players);
-    setBanker(
-      normalizeBankerState({
-        id: null,
-        date: day.date,
-        gameType: day.gameType || "",
-        customGameType: day.customGameType || "",
-        players: sortedPlayers.map((player) => ({
-          ...player,
-          buyIns: [...player.buyIns]
-        }))
       })
     );
     setExpandedPlayerId(null);
@@ -1604,8 +1702,8 @@ function App() {
 
                       if (nextValue === CUSTOM_STAKE_OPTION) {
                         setIsCustomStakeSelected(true);
-                        setCustomStakeInput(form.stakes && !stakeOptions.includes(form.stakes) ? form.stakes : "");
-                        updateForm("stakes", customStakeInput.trim());
+                        setCustomStakeInput("");
+                        updateForm("stakes", "");
                         return;
                       }
 
@@ -1924,10 +2022,17 @@ function App() {
           </button>
           <button
             className="secondary-button compact"
-            onClick={() => shareBankerSummary(banker)}
-            disabled={!banker.players.length}
+            onClick={() => shareBankerLink(banker)}
+            disabled={!banker.players.length || isSharingBanker}
           >
-            Share
+            Share Link
+          </button>
+          <button
+            className="secondary-button compact"
+            onClick={() => shareBankerSummary(banker)}
+            disabled={!banker.players.length || isSharingBanker}
+          >
+            Screenshot
           </button>
           <button
             className="primary-button compact"
@@ -2065,6 +2170,11 @@ function App() {
                           addBuyIn(player.id);
                         }
                       }}
+                      onBlur={() => {
+                        if ((playerBuyInInputs[player.id] ?? "") !== "") {
+                          addBuyIn(player.id);
+                        }
+                      }}
                     />
                     <button className="secondary-button compact buyin-button" onClick={() => addBuyIn(player.id)}>
                       Add Buy In
@@ -2157,11 +2267,22 @@ function App() {
                       </div>
                     </button>
 
-                    <button className="secondary-button compact" onClick={() => openBankerDayCopy(day)}>
-                      Edit Copy
+                    <button className="secondary-button compact" onClick={() => openBankerDay(day)}>
+                      Edit
                     </button>
-                    <button className="secondary-button compact" onClick={() => shareBankerSummary(day)}>
-                      Share
+                    <button
+                      className="secondary-button compact"
+                      onClick={() => shareBankerLink(day)}
+                      disabled={isSharingBanker}
+                    >
+                      Share Link
+                    </button>
+                    <button
+                      className="secondary-button compact"
+                      onClick={() => shareBankerSummary(day)}
+                      disabled={isSharingBanker}
+                    >
+                      Screenshot
                     </button>
                     <button className="delete-button" onClick={() => deleteBankerDay(day.id)}>
                       Delete
