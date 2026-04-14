@@ -255,6 +255,26 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.share-menu-wrap {
+  position: relative;
+}
+
+.share-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 12;
+  min-width: 132px;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 16px 32px rgba(109, 99, 207, 0.14);
+  backdrop-filter: blur(10px);
+}
+
 .header-center {
   text-align: center;
 }

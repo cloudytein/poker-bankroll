@@ -743,6 +743,7 @@ function App() {
   const [cloudError, setCloudError] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [isSharingBanker, setIsSharingBanker] = useState(false);
+  const [shareMenuTarget, setShareMenuTarget] = useState("");
   const [user, setUser] = useState(null);
   const [useDevAuthBypass, setUseDevAuthBypass] = useState(getStoredDevAuthBypass);
   const useCloudSync = isSupabaseConfigured && !useDevAuthBypass;
@@ -1254,6 +1255,7 @@ function App() {
     }
 
     setIsSharingBanker(true);
+    setShareMenuTarget("");
     setShareMessage("");
     setCloudError("");
 
@@ -1286,6 +1288,7 @@ function App() {
     }
 
     setIsSharingBanker(true);
+    setShareMenuTarget("");
     setShareMessage("");
     setCloudError("");
 
@@ -2020,20 +2023,25 @@ function App() {
           <button className="ghost-button compact" onClick={() => setPage("banker-history")}>
             Saved Sessions
           </button>
-          <button
-            className="secondary-button compact"
-            onClick={() => shareBankerLink(banker)}
-            disabled={!banker.players.length || isSharingBanker}
-          >
-            Share Link
-          </button>
-          <button
-            className="secondary-button compact"
-            onClick={() => shareBankerSummary(banker)}
-            disabled={!banker.players.length || isSharingBanker}
-          >
-            Screenshot
-          </button>
+          <div className="share-menu-wrap">
+            <button
+              className="secondary-button compact"
+              onClick={() => setShareMenuTarget((current) => (current === "current" ? "" : "current"))}
+              disabled={!banker.players.length || isSharingBanker}
+            >
+              Share
+            </button>
+            {shareMenuTarget === "current" ? (
+              <div className="share-menu">
+                <button type="button" className="ghost-button compact" onClick={() => shareBankerLink(banker)}>
+                  Link
+                </button>
+                <button type="button" className="ghost-button compact" onClick={() => shareBankerSummary(banker)}>
+                  Screenshot
+                </button>
+              </div>
+            ) : null}
+          </div>
           <button
             className="primary-button compact"
             onClick={saveBankerDay}
@@ -2270,20 +2278,27 @@ function App() {
                     <button className="secondary-button compact" onClick={() => openBankerDay(day)}>
                       Edit
                     </button>
-                    <button
-                      className="secondary-button compact"
-                      onClick={() => shareBankerLink(day)}
-                      disabled={isSharingBanker}
-                    >
-                      Share Link
-                    </button>
-                    <button
-                      className="secondary-button compact"
-                      onClick={() => shareBankerSummary(day)}
-                      disabled={isSharingBanker}
-                    >
-                      Screenshot
-                    </button>
+                    <div className="share-menu-wrap">
+                      <button
+                        className="secondary-button compact"
+                        onClick={() =>
+                          setShareMenuTarget((current) => (current === day.id ? "" : day.id))
+                        }
+                        disabled={isSharingBanker}
+                      >
+                        Share
+                      </button>
+                      {shareMenuTarget === day.id ? (
+                        <div className="share-menu">
+                          <button type="button" className="ghost-button compact" onClick={() => shareBankerLink(day)}>
+                            Link
+                          </button>
+                          <button type="button" className="ghost-button compact" onClick={() => shareBankerSummary(day)}>
+                            Screenshot
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                     <button className="delete-button" onClick={() => deleteBankerDay(day.id)}>
                       Delete
                     </button>
