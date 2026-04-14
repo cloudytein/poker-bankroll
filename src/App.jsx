@@ -455,6 +455,20 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+async function copyImageBlobToClipboard(blob) {
+  if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
+    return false;
+  }
+
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      [blob.type || "image/png"]: blob
+    })
+  ]);
+
+  return true;
+}
+
 function getMonthKey(dateString) {
   return dateString ? dateString.slice(0, 7) : "";
 }
@@ -744,6 +758,7 @@ function App() {
   const [shareMessage, setShareMessage] = useState("");
   const [isSharingBanker, setIsSharingBanker] = useState(false);
   const [shareMenuTarget, setShareMenuTarget] = useState("");
+  const [bankerRootPage, setBankerRootPage] = useState("home");
   const [bankerBackPage, setBankerBackPage] = useState("home");
   const [user, setUser] = useState(null);
   const [useDevAuthBypass, setUseDevAuthBypass] = useState(getStoredDevAuthBypass);
@@ -908,6 +923,7 @@ function App() {
         return map;
       }, {})
     );
+    setBankerRootPage("home");
     setBankerBackPage("home");
     setShareMessage("Shared banker session loaded.");
     setPage("banker");
@@ -1114,6 +1130,18 @@ function App() {
     setPage("log");
   }
 
+  function openBankerPage(fromPage) {
+    setBankerRootPage(fromPage);
+    setBankerBackPage(fromPage);
+    setShareMenuTarget("");
+    setPage("banker");
+  }
+
+  function openBankerHistory() {
+    setShareMenuTarget("");
+    setPage("banker-history");
+  }
+
   function openEditSession(session) {
     setEditingSessionId(session.id);
     setForm(sessionToForm(session));
@@ -1266,20 +1294,17 @@ function App() {
     try {
       const blob = await createBankerSummaryImageBlob(day);
       const filename = `home-game-${day.date || "summary"}.png`;
-      const file = new File([blob], filename, { type: "image/png" });
+      const copied = await copyImageBlobToClipboard(blob);
 
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: `${getBankerGameLabel(day)} Summary`,
-          files: [file]
-        });
+      if (copied) {
+        setShareMessage("Screenshot copied.");
       } else {
         downloadBlob(blob, filename);
-        setShareMessage("Home game summary image downloaded.");
+        setShareMessage("Screenshot downloaded.");
       }
     } catch (error) {
       if (error.name !== "AbortError") {
-        setCloudError(error.message || "Could not create the home game summary image.");
+        setCloudError(error.message || "Could not create the screenshot.");
       }
     } finally {
       setIsSharingBanker(false);
@@ -1602,10 +1627,7 @@ function App() {
         <button
           type="button"
           className="secondary-button"
-          onClick={() => {
-            setBankerBackPage("home");
-            setPage("banker");
-          }}
+          onClick={() => openBankerPage("home")}
         >
           Banker
         </button>
@@ -2039,7 +2061,7 @@ function App() {
           <p>{banker.id ? "Editing saved banker session" : "Current banker board"}</p>
         </div>
         <div className="header-side header-side-end">
-          <button className="ghost-button compact" onClick={() => setPage("banker-history")}>
+          <button className="ghost-button compact" onClick={openBankerHistory}>
             Saved Sessions
           </button>
           <div className="share-menu-wrap">
@@ -2259,7 +2281,7 @@ function App() {
   const bankerHistoryView = (
     <section className="panel">
       <div className="panel-header">
-        <button className="ghost-button" onClick={() => setPage("banker")}>
+        <button className="ghost-button" onClick={() => setPage(bankerRootPage)}>
           Back
         </button>
         <h1>Saved Banker Sessions</h1>
