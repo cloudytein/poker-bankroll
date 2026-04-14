@@ -744,6 +744,7 @@ function App() {
   const [shareMessage, setShareMessage] = useState("");
   const [isSharingBanker, setIsSharingBanker] = useState(false);
   const [shareMenuTarget, setShareMenuTarget] = useState("");
+  const [bankerBackPage, setBankerBackPage] = useState("home");
   const [user, setUser] = useState(null);
   const [useDevAuthBypass, setUseDevAuthBypass] = useState(getStoredDevAuthBypass);
   const useCloudSync = isSupabaseConfigured && !useDevAuthBypass;
@@ -753,6 +754,7 @@ function App() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const cloudReadyRef = useRef(false);
   const bankerDraftTimeoutRef = useRef(null);
+  const bankerShareLockRef = useRef(false);
 
   useEffect(() => {
     if (useCloudSync) {
@@ -906,6 +908,7 @@ function App() {
         return map;
       }, {})
     );
+    setBankerBackPage("home");
     setShareMessage("Shared banker session loaded.");
     setPage("banker");
     url.searchParams.delete(SHARED_BANKER_PARAM);
@@ -1250,10 +1253,11 @@ function App() {
   }
 
   async function shareBankerSummary(day) {
-    if (isSharingBanker) {
+    if (isSharingBanker || bankerShareLockRef.current) {
       return;
     }
 
+    bankerShareLockRef.current = true;
     setIsSharingBanker(true);
     setShareMenuTarget("");
     setShareMessage("");
@@ -1279,14 +1283,18 @@ function App() {
       }
     } finally {
       setIsSharingBanker(false);
+      window.setTimeout(() => {
+        bankerShareLockRef.current = false;
+      }, 250);
     }
   }
 
   async function shareBankerLink(day) {
-    if (isSharingBanker) {
+    if (isSharingBanker || bankerShareLockRef.current) {
       return;
     }
 
+    bankerShareLockRef.current = true;
     setIsSharingBanker(true);
     setShareMenuTarget("");
     setShareMessage("");
@@ -1314,6 +1322,9 @@ function App() {
       }
     } finally {
       setIsSharingBanker(false);
+      window.setTimeout(() => {
+        bankerShareLockRef.current = false;
+      }, 250);
     }
   }
 
@@ -1438,6 +1449,7 @@ function App() {
 
   function openBankerDay(day) {
     const sortedPlayers = sortBankerPlayersByResult(day.players);
+    setBankerBackPage("banker-history");
     setBanker(
       normalizeBankerState({
         id: day.id,
@@ -1587,7 +1599,14 @@ function App() {
         <button type="button" className="secondary-button" onClick={() => setPage("details")}>
           View Details
         </button>
-        <button type="button" className="secondary-button" onClick={() => setPage("banker")}>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => {
+            setBankerBackPage("home");
+            setPage("banker");
+          }}
+        >
           Banker
         </button>
       </div>
@@ -2011,7 +2030,7 @@ function App() {
     <section className="panel">
       <div className="panel-header banker-header">
         <div className="header-side">
-          <button className="ghost-button" onClick={() => setPage("home")}>
+          <button className="ghost-button" onClick={() => setPage(bankerBackPage)}>
             Back
           </button>
         </div>
@@ -2278,27 +2297,6 @@ function App() {
                     <button className="secondary-button compact" onClick={() => openBankerDay(day)}>
                       Edit
                     </button>
-                    <div className="share-menu-wrap">
-                      <button
-                        className="secondary-button compact"
-                        onClick={() =>
-                          setShareMenuTarget((current) => (current === day.id ? "" : day.id))
-                        }
-                        disabled={isSharingBanker}
-                      >
-                        Share
-                      </button>
-                      {shareMenuTarget === day.id ? (
-                        <div className="share-menu">
-                          <button type="button" className="ghost-button compact" onClick={() => shareBankerLink(day)}>
-                            Link
-                          </button>
-                          <button type="button" className="ghost-button compact" onClick={() => shareBankerSummary(day)}>
-                            Screenshot
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
                     <button className="delete-button" onClick={() => deleteBankerDay(day.id)}>
                       Delete
                     </button>
