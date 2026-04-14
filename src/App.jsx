@@ -804,6 +804,7 @@ function App() {
   const [cloudError, setCloudError] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [isSharingBanker, setIsSharingBanker] = useState(false);
+  const [isSavingBanker, setIsSavingBanker] = useState(false);
   const [shareMenuTarget, setShareMenuTarget] = useState("");
   const [bankerRootPage, setBankerRootPage] = useState("home");
   const [bankerBackPage, setBankerBackPage] = useState("home");
@@ -817,6 +818,7 @@ function App() {
   const cloudReadyRef = useRef(false);
   const bankerDraftTimeoutRef = useRef(null);
   const bankerShareLockRef = useRef(false);
+  const bankerSaveLockRef = useRef(false);
 
   useEffect(() => {
     if (useCloudSync) {
@@ -1480,6 +1482,10 @@ function App() {
   }
 
   async function saveBankerDay() {
+    if (isSavingBanker || bankerSaveLockRef.current) {
+      return;
+    }
+
     if (
       !banker.players.length ||
       !banker.gameType ||
@@ -1488,27 +1494,38 @@ function App() {
       return;
     }
 
+    bankerSaveLockRef.current = true;
+    setIsSavingBanker(true);
+    setCloudError("");
+
     const savedAt = Date.now();
     const snapshot = createBankerDaySnapshot(banker, savedAt);
 
-    if (useCloudSync && user) {
-      const { error } = await supabase
-        .from("banker_days")
-        .upsert(bankerDayToRow(snapshot, user.id), { onConflict: "id" });
+    try {
+      if (useCloudSync && user) {
+        const { error } = await supabase
+          .from("banker_days")
+          .upsert(bankerDayToRow(snapshot, user.id), { onConflict: "id" });
 
-      if (error) {
-        setCloudError(error.message);
-        return;
+        if (error) {
+          setCloudError(error.message);
+          return;
+        }
       }
-    }
 
-    setBankerDays((current) =>
-      sortBankerDaysNewestFirst([snapshot, ...current.filter((item) => item.id !== snapshot.id)])
-    );
-    setBanker(createDefaultBankerState());
-    setExpandedPlayerId(null);
-    setPlayerBuyInInputs({});
-    setPlayerCashOutInputs({});
+      setBankerDays((current) =>
+        sortBankerDaysNewestFirst([snapshot, ...current.filter((item) => item.id !== snapshot.id)])
+      );
+      setBanker(createDefaultBankerState());
+      setExpandedPlayerId(null);
+      setPlayerBuyInInputs({});
+      setPlayerCashOutInputs({});
+    } finally {
+      setIsSavingBanker(false);
+      window.setTimeout(() => {
+        bankerSaveLockRef.current = false;
+      }, 250);
+    }
   }
 
   function openBankerDay(day) {
@@ -2121,6 +2138,7 @@ function App() {
             className="primary-button compact"
             onClick={saveBankerDay}
             disabled={
+              isSavingBanker ||
               !banker.players.length ||
               !banker.gameType ||
               (banker.gameType === "other" && !banker.customGameType.trim())
