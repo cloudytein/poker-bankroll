@@ -595,7 +595,7 @@ button:disabled {
 
 .banker-player-card .player-controls {
   margin-top: 6px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.45fr) minmax(84px, 0.6fr) minmax(0, 1.45fr) minmax(84px, 0.6fr);
   gap: 8px;
 }
 
@@ -824,7 +824,7 @@ button:disabled {
   }
 
   .banker-player-card .player-controls {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.3fr) minmax(78px, 0.58fr) minmax(0, 1.3fr) minmax(78px, 0.58fr);
     gap: 6px;
   }
 
