@@ -6,7 +6,7 @@ const BANKER_STORAGE_KEY = "cloud-banker-v1";
 const BANKER_DAYS_STORAGE_KEY = "cloud-banker-days-v1";
 const DEV_AUTH_BYPASS_STORAGE_KEY = "cloud-dev-auth-bypass-v1";
 const STAKES_STORAGE_KEY = "cloud-bankroll-stakes-v1";
-const SHARED_BANKER_PARAM = "sharedBanker";
+const SHARED_BANKER_PARAM = "s";
 
 const GAME_OPTIONS = ["tourney", "cash game", "home game", "online", "other"];
 const BANKER_GAME_OPTIONS = ["cash game", "home game", "online", "other"];
@@ -147,12 +147,29 @@ function clearAuthCallbackUrl() {
   }
 
   const url = new URL(window.location.href);
-  const sharedBanker = url.searchParams.get(SHARED_BANKER_PARAM);
-  const nextUrl = sharedBanker
-    ? `${window.location.pathname}?${new URLSearchParams([[SHARED_BANKER_PARAM, sharedBanker]]).toString()}`
-    : window.location.pathname;
+  const sharedBanker = getSharedBankerValue(url);
+  const nextUrl = sharedBanker ? `${window.location.pathname}#${SHARED_BANKER_PARAM}=${sharedBanker}` : window.location.pathname;
 
   window.history.replaceState({}, document.title, nextUrl);
+}
+
+function getSharedBankerValue(urlLike = window.location.href) {
+  const url = urlLike instanceof URL ? urlLike : new URL(urlLike, window.location.origin);
+  const searchValue = url.searchParams.get("sharedBanker") || url.searchParams.get(SHARED_BANKER_PARAM);
+  if (searchValue) {
+    return searchValue;
+  }
+
+  const hashValue = new URLSearchParams(url.hash.replace(/^#/, "")).get(SHARED_BANKER_PARAM);
+  return hashValue || "";
+}
+
+function clearSharedBankerUrl() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.history.replaceState({}, document.title, window.location.pathname);
 }
 
 function getStoredDevAuthBypass() {
@@ -229,32 +246,61 @@ function getStoredStakeOptions() {
 }
 
 function encodeSharedBankerSession(day) {
-  const payload = {
-    date: day.date,
-    gameType: day.gameType || "",
-    customGameType: day.customGameType || "",
-    players: sortBankerPlayersByResult(day.players).map((player) => ({
-      id: generateId(),
-      name: player.name,
-      buyIns: [...player.buyIns],
-      cashOut: Number(player.cashOut) || 0
-    }))
-  };
+  const payload = [
+    day.date || "",
+    day.gameType || "",
+    day.customGameType || "",
+    sortBankerPlayersByResult(day.players).map((player) => [
+      player.name,
+      Array.isArray(player.buyIns) ? player.buyIns.map((value) => Number(value) || 0) : [],
+      Number(player.cashOut) || 0
+    ])
+  ];
 
   const json = JSON.stringify(payload);
-  return btoa(unescape(encodeURIComponent(json)));
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function decodeSharedBankerSession(value) {
   try {
-    const json = decodeURIComponent(escape(atob(value)));
-    const parsed = JSON.parse(json);
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const parsed = JSON.parse(new TextDecoder().decode(bytes));
+    const [date, gameType, customGameType, players] = Array.isArray(parsed)
+      ? parsed
+      : [parsed.date, parsed.gameType, parsed.customGameType, parsed.players];
+
     return normalizeBankerState({
       id: null,
-      date: parsed.date,
-      gameType: parsed.gameType,
-      customGameType: parsed.customGameType,
-      players: Array.isArray(parsed.players) ? parsed.players : []
+      date,
+      gameType,
+      customGameType,
+      players: Array.isArray(players)
+        ? players.map((player) =>
+            Array.isArray(player)
+              ? {
+                  id: generateId(),
+                  name: player[0] || "",
+                  buyIns: Array.isArray(player[1]) ? player[1].map((value) => Number(value) || 0) : [],
+                  cashOut: Number(player[2]) || 0
+                }
+              : {
+                  id: generateId(),
+                  name: player.name || "",
+                  buyIns: Array.isArray(player.buyIns)
+                    ? player.buyIns.map((entry) => Number(entry) || 0)
+                    : [],
+                  cashOut: Number(player.cashOut) || 0
+                }
+          )
+        : []
     });
   } catch {
     return null;
@@ -716,6 +762,7 @@ function AuthView({
 }
 
 function App() {
+  const sharedBankerValue = typeof window === "undefined" ? "" : getSharedBankerValue();
   const localSessions = useMemo(
     () => sortSessionsNewestFirst(parseStoredJson(SESSION_STORAGE_KEY, [])),
     []
@@ -898,12 +945,11 @@ function App() {
       return;
     }
 
-    if (useCloudSync && !user) {
+    if (useCloudSync && !user && !sharedBankerValue) {
       return;
     }
 
-    const url = new URL(window.location.href);
-    const sharedValue = url.searchParams.get(SHARED_BANKER_PARAM);
+    const sharedValue = getSharedBankerValue();
     if (!sharedValue) {
       return;
     }
@@ -922,10 +968,8 @@ function App() {
     setBankerBackPage("home");
     setShareMessage("Shared banker session loaded.");
     setPage("banker");
-    url.searchParams.delete(SHARED_BANKER_PARAM);
-    const nextSearch = url.searchParams.toString();
-    window.history.replaceState({}, document.title, `${url.pathname}${nextSearch ? `?${nextSearch}` : ""}`);
-  }, [useCloudSync, user]);
+    clearSharedBankerUrl();
+  }, [sharedBankerValue, useCloudSync, user]);
 
   useEffect(() => {
     if (!useCloudSync || !user) {
@@ -1323,16 +1367,16 @@ function App() {
     try {
       const encoded = encodeSharedBankerSession(day);
       const shareUrl = new URL(window.location.origin + window.location.pathname);
-      shareUrl.searchParams.set(SHARED_BANKER_PARAM, encoded);
+      shareUrl.hash = `${SHARED_BANKER_PARAM}=${encoded}`;
 
-      if (navigator.share) {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl.toString());
+        setShareMessage("Banker session link copied.");
+      } else if (navigator.share) {
         await navigator.share({
           title: `${getBankerGameLabel(day)} Session`,
           url: shareUrl.toString()
         });
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(shareUrl.toString());
-        setShareMessage("Banker session link copied.");
       } else {
         setCloudError("Link sharing is not supported in this browser.");
       }
@@ -2376,7 +2420,7 @@ function App() {
     </main>
   );
 
-  if (useCloudSync && !user) {
+  if (useCloudSync && !user && !sharedBankerValue) {
     return (
       <>
         {isAuthLoading ? (
